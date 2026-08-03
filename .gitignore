@@ -1,0 +1,3 @@
+# Lambda deployment artifacts
+lambda_package/
+*.zip

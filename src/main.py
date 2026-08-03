@@ -22,6 +22,11 @@ def main():
     print("AWS Threat Detection Pipeline")
     print("=" * 60)
 
+    if not SNS_TOPIC_ARN:
+        raise ValueError(
+            "SNS_TOPIC_ARN environment variable is not configured."
+        )
+
     # -----------------------------
     # S3 Buckets
     # -----------------------------
@@ -199,6 +204,20 @@ def main():
     print(f"IAM Key Findings:      {len(access_key_findings)}")
     print(f"Alertable Findings:    {len(alertable_findings)}")
     print("=" * 60)
+
+    return {
+        "secrets_findings": len(findings),
+        "access_key_findings": len(access_key_findings),
+        "alertable_findings": len(alertable_findings),
+    }
+
+def lambda_handler(event, context):
+    summary = main()
+
+    return {
+        "statusCode": 200,
+        "body": summary,
+    }
 
 
 if __name__ == "__main__":
