@@ -57,6 +57,8 @@ def main():
             print(f"Source IP: {finding['source_ip']}")
             print(f"Time: {finding['event_time']}")
             print(f"Recommendation: {finding['recommendation']}")
+            print(f"Reason: {finding['reason']}")
+            print(f"Identity Type: {finding['identity_type']}")
 
 
 if __name__ == "__main__":
