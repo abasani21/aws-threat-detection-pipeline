@@ -93,3 +93,18 @@ def list_iam_access_keys():
             )
 
     return key_details
+
+def send_sns_alert(topic_arn, subject, message):
+    """
+    Publishes an alert message to an SNS topic.
+    """
+
+    sns = boto3.client("sns")
+
+    response = sns.publish(
+        TopicArn=topic_arn,
+        Subject=subject,
+        Message=message,
+    )
+
+    return response["MessageId"]

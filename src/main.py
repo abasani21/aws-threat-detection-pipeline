@@ -4,9 +4,15 @@ from aws_client import (
     list_secrets,
     list_secret_access_events,
     list_iam_access_keys,
+    send_sns_alert,
 )
 
-from detectors import detect_secret_access, detect_risky_access_keys
+from detectors import (
+    detect_secret_access,
+    detect_risky_access_keys,
+)
+
+from config import SNS_TOPIC_ARN
 
 
 def main():
@@ -14,6 +20,9 @@ def main():
     print("AWS Threat Detection Pipeline")
     print("=" * 50)
 
+    # -----------------------------
+    # S3 Buckets
+    # -----------------------------
     buckets = list_s3_buckets()
 
     if not buckets:
@@ -23,6 +32,9 @@ def main():
         for bucket in buckets:
             print(f"- {bucket}")
 
+    # -----------------------------
+    # IAM Users
+    # -----------------------------
     users = list_iam_users()
 
     if not users:
@@ -32,6 +44,9 @@ def main():
         for user in users:
             print(f"- {user}")
 
+    # -----------------------------
+    # Secrets Manager
+    # -----------------------------
     secrets = list_secrets()
 
     if not secrets:
@@ -41,6 +56,9 @@ def main():
         for secret in secrets:
             print(f"- {secret}")
 
+    # -----------------------------
+    # Secret Access Detection
+    # -----------------------------
     events = list_secret_access_events()
     findings = detect_secret_access(events)
 
@@ -64,8 +82,9 @@ def main():
             print(f"Recommendation: {finding['recommendation']}")
             print(f"Identity Type: {finding['identity_type']}")
 
-    # This section must align with the "if not findings" line,
-    # not sit inside the "for finding" loop.
+    # -----------------------------
+    # IAM Access Key Detection
+    # -----------------------------
     access_keys = list_iam_access_keys()
     access_key_findings = detect_risky_access_keys(access_keys)
 
@@ -75,6 +94,7 @@ def main():
         print("No IAM access keys found.")
     else:
         for finding in access_key_findings:
+
             masked_key = (
                 finding["access_key_id"][:4]
                 + "*" * 12
@@ -91,6 +111,47 @@ def main():
             print(f"Last Used: {finding['last_used']}")
             print(f"Reason: {finding['reason']}")
             print(f"Recommendation: {finding['recommendation']}")
+
+    # -----------------------------
+    # SNS Alerts
+    # -----------------------------
+    alertable_findings = [
+        finding
+        for finding in findings + access_key_findings
+        if finding["severity"] in {"MEDIUM", "HIGH", "CRITICAL"}
+    ]
+
+    if alertable_findings:
+
+        message_lines = [
+            "AWS Threat Detection Pipeline",
+            "",
+            f"{len(alertable_findings)} alertable finding(s) detected.",
+            "",
+        ]
+
+        for finding in alertable_findings:
+            message_lines.append(
+                f"[{finding['severity']}] {finding['title']}"
+            )
+            message_lines.append(
+                f"Reason: {finding['reason']}"
+            )
+            message_lines.append("")
+
+        message = "\n".join(message_lines)
+
+        message_id = send_sns_alert(
+            SNS_TOPIC_ARN,
+            "AWS Security Alert",
+            message,
+        )
+
+        print("\nSNS alert sent successfully.")
+        print(f"Message ID: {message_id}")
+
+    else:
+        print("\nNo MEDIUM or higher findings. SNS alert not sent.")
 
 
 if __name__ == "__main__":
