@@ -1,3 +1,10 @@
-APPROVED_SECRET_USERS = {"akhil"}
+import os
 
-SNS_TOPIC_ARN = "arn:aws:sns:us-east-1:626635446478:cloud-demo-alarm-topic"
+
+APPROVED_SECRET_USERS = {
+    user.strip()
+    for user in os.getenv("APPROVED_SECRET_USERS", "").split(",")
+    if user.strip()
+}
+
+SNS_TOPIC_ARN = os.getenv("SNS_TOPIC_ARN", "")
