@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from aws_client import (
     list_s3_buckets,
     list_iam_users,
@@ -16,9 +18,9 @@ from config import SNS_TOPIC_ARN
 
 
 def main():
-    print("=" * 50)
+    print("=" * 60)
     print("AWS Threat Detection Pipeline")
-    print("=" * 50)
+    print("=" * 60)
 
     # -----------------------------
     # S3 Buckets
@@ -123,27 +125,61 @@ def main():
 
     if alertable_findings:
 
+        highest_severity = alertable_findings[0]["severity"]
+
         message_lines = [
-            "AWS Threat Detection Pipeline",
+            "=" * 60,
+            "AWS THREAT DETECTION PIPELINE",
+            "=" * 60,
             "",
-            f"{len(alertable_findings)} alertable finding(s) detected.",
+            "SECURITY ALERT",
+            "",
+            f"Severity: {highest_severity}",
             "",
         ]
 
         for finding in alertable_findings:
-            message_lines.append(
-                f"[{finding['severity']}] {finding['title']}"
-            )
-            message_lines.append(
-                f"Reason: {finding['reason']}"
-            )
-            message_lines.append("")
+
+            message_lines.extend([
+                "-" * 60,
+                f"Finding: {finding['title']}",
+                f"User: {finding.get('username', 'Unknown')}",
+            ])
+
+            if "access_key_id" in finding:
+                masked_key = (
+                    finding["access_key_id"][:4]
+                    + "*" * 12
+                    + finding["access_key_id"][-4:]
+                )
+                message_lines.append(f"Access Key: {masked_key}")
+
+            if "secret_id" in finding:
+                secret_name = finding["secret_id"].split(":")[-1]
+                message_lines.append(f"Secret: {secret_name}")
+
+            message_lines.extend([
+                f"Reason: {finding['reason']}",
+                f"Recommendation: {finding['recommendation']}",
+                "",
+            ])
+
+        message_lines.extend([
+            "=" * 60,
+            "PIPELINE SUMMARY",
+            "=" * 60,
+            f"Secrets Findings: {len(findings)}",
+            f"IAM Access Key Findings: {len(access_key_findings)}",
+            f"Alertable Findings: {len(alertable_findings)}",
+            "",
+            f"Generated: {datetime.now()}",
+        ])
 
         message = "\n".join(message_lines)
 
         message_id = send_sns_alert(
             SNS_TOPIC_ARN,
-            "AWS Security Alert",
+            f"[{highest_severity}] AWS Threat Detection - {alertable_findings[0]['title']}",
             message,
         )
 
@@ -152,6 +188,17 @@ def main():
 
     else:
         print("\nNo MEDIUM or higher findings. SNS alert not sent.")
+
+    # -----------------------------
+    # Pipeline Summary
+    # -----------------------------
+    print("\n" + "=" * 60)
+    print("Pipeline Summary")
+    print("=" * 60)
+    print(f"Secrets Findings:      {len(findings)}")
+    print(f"IAM Key Findings:      {len(access_key_findings)}")
+    print(f"Alertable Findings:    {len(alertable_findings)}")
+    print("=" * 60)
 
 
 if __name__ == "__main__":
