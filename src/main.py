@@ -3,9 +3,10 @@ from aws_client import (
     list_iam_users,
     list_secrets,
     list_secret_access_events,
+    list_iam_access_keys,
 )
 
-from detectors import detect_secret_access
+from detectors import detect_secret_access, detect_risky_access_keys
 
 
 def main():
@@ -53,12 +54,43 @@ def main():
             print(f"Severity: {finding['severity']}")
             print(f"Finding: {finding['title']}")
             print(f"User: {finding['username']}")
-            print(f"Secret: {finding['secret_id']}")
+
+            secret_name = finding["secret_id"].split(":")[-1]
+            print(f"Secret: {secret_name}")
+
             print(f"Source IP: {finding['source_ip']}")
             print(f"Time: {finding['event_time']}")
-            print(f"Recommendation: {finding['recommendation']}")
             print(f"Reason: {finding['reason']}")
+            print(f"Recommendation: {finding['recommendation']}")
             print(f"Identity Type: {finding['identity_type']}")
+
+    # This section must align with the "if not findings" line,
+    # not sit inside the "for finding" loop.
+    access_keys = list_iam_access_keys()
+    access_key_findings = detect_risky_access_keys(access_keys)
+
+    print("\nIAM Access Key Findings:")
+
+    if not access_key_findings:
+        print("No IAM access keys found.")
+    else:
+        for finding in access_key_findings:
+            masked_key = (
+                finding["access_key_id"][:4]
+                + "*" * 12
+                + finding["access_key_id"][-4:]
+            )
+
+            print("\n" + "-" * 50)
+            print(f"Severity: {finding['severity']}")
+            print(f"Finding: {finding['title']}")
+            print(f"User: {finding['username']}")
+            print(f"Access Key: {masked_key}")
+            print(f"Status: {finding['status']}")
+            print(f"Age: {finding['age_days']} days")
+            print(f"Last Used: {finding['last_used']}")
+            print(f"Reason: {finding['reason']}")
+            print(f"Recommendation: {finding['recommendation']}")
 
 
 if __name__ == "__main__":

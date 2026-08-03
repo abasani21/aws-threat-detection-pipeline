@@ -57,3 +57,39 @@ def list_secret_access_events():
     )
 
     return response["Events"]
+
+def list_iam_access_keys():
+    """
+    Returns access-key details for every IAM user.
+    """
+
+    iam = boto3.client("iam")
+    key_details = []
+
+    users_response = iam.list_users()
+
+    for user in users_response["Users"]:
+        username = user["UserName"]
+
+        keys_response = iam.list_access_keys(UserName=username)
+
+        for key in keys_response["AccessKeyMetadata"]:
+            last_used_response = iam.get_access_key_last_used(
+                AccessKeyId=key["AccessKeyId"]
+            )
+
+            last_used = last_used_response["AccessKeyLastUsed"].get(
+                "LastUsedDate"
+            )
+
+            key_details.append(
+                {
+                    "username": username,
+                    "access_key_id": key["AccessKeyId"],
+                    "status": key["Status"],
+                    "create_date": key["CreateDate"],
+                    "last_used_date": last_used,
+                }
+            )
+
+    return key_details

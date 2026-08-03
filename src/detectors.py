@@ -1,5 +1,7 @@
 import json
 
+from datetime import datetime, timezone
+
 from config import APPROVED_SECRET_USERS
 
 
@@ -48,5 +50,50 @@ def detect_secret_access(events):
         }
 
         findings.append(finding)
+
+    return findings
+
+def detect_risky_access_keys(access_keys, max_age_days=90):
+    """
+    Flags old, inactive, or never-used IAM access keys.
+    """
+
+    findings = []
+    now = datetime.now(timezone.utc)
+
+    for key in access_keys:
+        create_date = key["create_date"]
+        age_days = (now - create_date).days
+        last_used = key["last_used_date"]
+
+        if key["status"] == "Inactive":
+            severity = "MEDIUM"
+            reason = "The access key is inactive but still exists."
+        elif last_used is None:
+            severity = "HIGH"
+            reason = "The access key has never been used."
+        elif age_days >= max_age_days:
+            severity = "MEDIUM"
+            reason = f"The access key is {age_days} days old."
+        else:
+            severity = "LOW"
+            reason = "The access key is active and below the age threshold."
+
+        findings.append(
+            {
+                "severity": severity,
+                "title": "IAM access key review",
+                "username": key["username"],
+                "access_key_id": key["access_key_id"],
+                "status": key["status"],
+                "age_days": age_days,
+                "last_used": str(last_used) if last_used else "Never",
+                "reason": reason,
+                "recommendation": (
+                    "Remove unused keys and rotate keys that exceed "
+                    f"{max_age_days} days."
+                ),
+            }
+        )
 
     return findings
