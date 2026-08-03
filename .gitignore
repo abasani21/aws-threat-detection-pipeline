@@ -1,3 +1,10 @@
+# Python virtual environment
+.venv/
+
 # Lambda deployment artifacts
 lambda_package/
 *.zip
+
+# Python cache
+__pycache__/
+*.pyc
